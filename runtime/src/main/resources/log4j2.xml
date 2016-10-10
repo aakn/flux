@@ -9,13 +9,13 @@
         </Console>
     </Appenders>
     <Loggers>
-        <Root level="INFO" additivity="false">
+        <Root level="INFO">
             <AppenderRef ref="console-log"/>
         </Root>
-        <Logger name="org.eclipse.jetty.*" level="info" additivity="false" >
+        <Logger name="org.eclipse.jetty.*" level="info"  >
             <AppenderRef ref="console-log"/>
         </Logger>
-        <Logger name="com.flipkart.polyguice.*" level="info" additivity="false">
+        <Logger name="com.flipkart.polyguice.*" level="info" >
             <AppenderRef ref="console-log"/>
         </Logger>
     </Loggers>
