@@ -23,9 +23,9 @@ import org.slf4j.LoggerFactory;
 import javax.inject.Inject;
 import javax.inject.Named;
 import javax.inject.Singleton;
+import java.util.ConcurrentModificationException;
 import java.util.Date;
 import java.util.List;
-import java.util.Optional;
 import java.util.PriorityQueue;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -68,17 +68,16 @@ public class MessageScheduler {
     }
 
     public void removeMessage(Long taskId) {
-        final Optional<ScheduledMessage> scheduledMessageOptional
-                = this.messages.stream().filter((m) -> m.getTaskId().equals(taskId)).findFirst();
-        if (scheduledMessageOptional.isPresent()) {
-            final ScheduledMessage message = scheduledMessageOptional.get();
-            /* It is important that we delete from priority queue first. Its okay even if we the schedule for removal call fails.
-                At most we will send a message that was not supposed to be sent but the receiver should be able to handle
-                such cases by consulting its own DB.
-             */
-            this.messages.remove(message);
-            this.messageManagerService.scheduleForRemoval(message);
+        try {
+        /* It is important that we delete from priority queue first. Its okay even if we the schedule for removal call fails.
+            At most we will send a message that was not supposed to be sent but the receiver should be able to handle
+            such cases by consulting its own DB.
+        */
+            this.messages.removeIf((m) -> m.getTaskId().equals(taskId));
+        } catch (ConcurrentModificationException ex) {
+            logger.warn("Removing from priority queue failed due to concurrent modification exception. Ignoring it!");
         }
+        this.messageManagerService.scheduleForRemoval(taskId);
     }
 
     public void start() {
@@ -144,7 +143,7 @@ public class MessageScheduler {
                 try {
                     _run();
                 } catch (RuntimeException e) {
-                    logger.error("Encountered exception during execution", e);
+                    logger.error("Encountered exception during execution. Error: " + e.getMessage(), e);
                 } catch (InterruptedException e) {
                     /* The thread is interrupted, best to bail now. */
                     logger.error("We were interrupted", e);
@@ -164,7 +163,7 @@ public class MessageScheduler {
                      */
                     final ScheduledMessage messageToSend = messages.poll();
                     redriverRegistry.redriveTask(messageToSend.getTaskId());
-                    messageManagerService.scheduleForRemoval(messageToSend);
+                    messageManagerService.scheduleForRemoval(messageToSend.getTaskId());
                 } else {
                     Long timeLeft = highestPriorityMessage.timeLeftToRun();
                     if (timeLeft > 0) {
