@@ -14,13 +14,13 @@
 package com.flipkart.flux.redriver.dao;
 
 import com.flipkart.flux.guice.module.ConfigModule;
+import com.flipkart.flux.persistence.SessionFactoryContext;
 import com.flipkart.flux.redriver.boot.RedriverTestModule;
 import com.flipkart.flux.redriver.model.ScheduledMessage;
 import com.flipkart.flux.runner.GuiceJunit4Runner;
 import com.flipkart.flux.runner.Modules;
 import com.google.inject.Inject;
 import org.hibernate.Session;
-import org.hibernate.SessionFactory;
 import org.hibernate.Transaction;
 import org.hibernate.context.internal.ManagedSessionContext;
 import org.junit.Before;
@@ -39,21 +39,23 @@ public class MessageDaoTest {
     MessageDao messageDao;
 
     @Inject
-    @Named("redriverSessionFactory")
-    SessionFactory sessionFactory;
+    @Named("redriverSessionFactoryContext")
+    SessionFactoryContext sessionFactory;
 
     @Before
     public void setUp() throws Exception {
-        Session session = sessionFactory.openSession();
+        sessionFactory.useDefault();
+        Session session = sessionFactory.getSessionFactory().openSession();
         ManagedSessionContext.bind(session);
         Transaction tx = session.beginTransaction();
         try {
-            sessionFactory.getCurrentSession().createSQLQuery("delete from ScheduledMessages").executeUpdate();
+            sessionFactory.getSessionFactory().getCurrentSession().createSQLQuery("delete from ScheduledMessages").executeUpdate();
             tx.commit();
         } finally {
             if(session != null) {
-                ManagedSessionContext.unbind(sessionFactory);
+                ManagedSessionContext.unbind(sessionFactory.getSessionFactory());
                 session.close();
+                sessionFactory.clear();
             }
         }
     }
@@ -64,6 +66,18 @@ public class MessageDaoTest {
         messageDao.save(new ScheduledMessage(2l,3l));
         messageDao.save(new ScheduledMessage(3l,4l));
         messageDao.deleteInBatch(Arrays.asList(1l, 2l));
-        assertThat(messageDao.retrieveAll()).containsExactly(new ScheduledMessage(3l,4l));
+
+        assertThat(messageDao.retrieveOldest(0, 10)).containsExactly(new ScheduledMessage(3l,4l));
+    }
+
+    @Test
+    public void testRetrieveOldest() throws Exception {
+        messageDao.save(new ScheduledMessage(1l,2l));
+        messageDao.save(new ScheduledMessage(2l,3l));
+        messageDao.save(new ScheduledMessage(3l,4l));
+
+        assertThat(messageDao.retrieveOldest(0, 1)).containsExactly(new ScheduledMessage(1l,2l));
+        assertThat(messageDao.retrieveOldest(1, 3)).hasSize(2);
+        assertThat(messageDao.retrieveOldest(1, 3)).containsSequence(new ScheduledMessage(2l,3l), new ScheduledMessage(3l,4l));
     }
 }

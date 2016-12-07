@@ -9,25 +9,23 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
- *
  */
 
-package com.flipkart.flux.impl.task.registry;
+package com.flipkart.flux.persistence;
 
-import akka.cluster.routing.ClusterRouterPoolSettings;
-import javafx.util.Pair;
+import java.lang.annotation.ElementType;
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
+import java.lang.annotation.Target;
 
 /**
- * Provides configurations needed for creating routers in the system
+ * Annotation to select a particular data source based on the usage pattern. To be used along with
+ * {@link javax.transaction.Transactional}.
  *
- * @see RouterRegistry
- * @author yogesh.nachnani
+ * Created by gaurav.ashok on 24/11/16.
  */
-public interface RouterConfigurationRegistry {
-
-    /**
-     *
-     * @return an iterable that provides (Router Name, ClusterRouterPoolSettings) pairs
-     */
-    Iterable<Pair<String,ClusterRouterPoolSettings>> getConfigurations();
+@Target(ElementType.METHOD)
+@Retention(RetentionPolicy.RUNTIME)
+public @interface SelectDataSource {
+    DataSourceType value() default DataSourceType.READ_WRITE;
 }

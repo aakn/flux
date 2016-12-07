@@ -13,10 +13,11 @@
 
 package com.flipkart.flux.redriver.dao;
 
+import com.flipkart.flux.persistence.SessionFactoryContext;
 import com.flipkart.flux.redriver.model.ScheduledMessage;
 import org.hibernate.Query;
 import org.hibernate.Session;
-import org.hibernate.SessionFactory;
+import org.hibernate.criterion.Order;
 
 import javax.inject.Inject;
 import javax.inject.Named;
@@ -30,11 +31,11 @@ import java.util.List;
 @Singleton
 public class MessageDao {
 
-    private SessionFactory sessionFactory;
+    private SessionFactoryContext sessionFactoryContext;
 
     @Inject
-    public MessageDao(@Named("redriverSessionFactory") SessionFactory sessionFactory) {
-        this.sessionFactory = sessionFactory;
+    public MessageDao(@Named("redriverSessionFactoryContext") SessionFactoryContext sessionFactoryContext) {
+        this.sessionFactoryContext = sessionFactoryContext;
     }
 
     @Transactional
@@ -43,8 +44,13 @@ public class MessageDao {
     }
 
     @Transactional
-    public List<ScheduledMessage> retrieveAll() {
-        return currentSession().createCriteria(ScheduledMessage.class).list();
+    public List<ScheduledMessage> retrieveOldest(int offset, int rowCount) {
+        return currentSession()
+                .createCriteria(ScheduledMessage.class)
+                .addOrder(Order.asc("scheduledTime"))
+                .setFirstResult(offset)
+                .setMaxResults(rowCount)
+                .list();
     }
 
     @Transactional
@@ -58,7 +64,6 @@ public class MessageDao {
      * @return Session
      */
     private Session currentSession() {
-        return sessionFactory.getCurrentSession();
+        return sessionFactoryContext.getSessionFactory().getCurrentSession();
     }
-
 }
