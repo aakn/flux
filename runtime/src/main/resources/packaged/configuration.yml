@@ -45,7 +45,10 @@ Api:
 
 routers:
   default:
-    instancesPerNode: 10
+    instancesPerNode: 5
+
+task:
+  maxTaskRetryCount: 10
 
 runtime:
   actorsystem:

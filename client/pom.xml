@@ -7,12 +7,12 @@
     <parent>
         <groupId>com.flipkart</groupId>
         <artifactId>flux</artifactId>
-        <version>1.0.4-SNAPSHOT</version>
+        <version>1.0</version>
     </parent>
     
     <groupId>com.flipkart.flux</groupId>
     <artifactId>client</artifactId>
-    <version>1.0.4-SNAPSHOT</version>
+    <version>1.0</version>
     <name>client</name>
     <url>http://maven.apache.org</url>
 
@@ -40,7 +40,7 @@
         <dependency>
             <groupId>com.flipkart.flux</groupId>
             <artifactId>api</artifactId>
-            <version>1.0.4-SNAPSHOT</version>
+            <version>1.0</version>
         </dependency>
         <dependency>
             <groupId>javax.inject</groupId>
@@ -129,6 +129,11 @@
             <artifactId>cglib-nodep</artifactId>
             <version>3.1</version>
             <scope>compile</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.slf4j</groupId>
+            <artifactId>slf4j-api</artifactId>
+            <version>1.7.21</version>
         </dependency>
     </dependencies>
 

@@ -11,32 +11,19 @@
  * limitations under the License.
  */
 
-package com.flipkart.flux.api;
-
-import com.fasterxml.jackson.annotation.JsonProperty;
-
-import java.util.Map;
+package com.flipkart.flux.exception;
 
 /**
- * The <code>WorkflowSummary</code> class is a DTO for representing summary of workflow
+ * <code>DuplicateDeploymentUnitException</code> indicates if there exists a deployment unit with same name and version.
  *
- * @author ashish.bhutani
- *
+ * @author shyam.akirala
  */
-public class WorkflowSummary {
-    @JsonProperty
-    private Map<String, WorkflowVersionStatus> summary;
-
-    /* Used for deserialisation by jackson */
-    WorkflowSummary() {
+public class DuplicateDeploymentUnitException extends Exception {
+    public DuplicateDeploymentUnitException(String message) {
+        super(message);
     }
 
-    public WorkflowSummary(Map<String, WorkflowVersionStatus> summary) {
-        this.summary = summary;
-    }
-
-    /** Getter/Setters */
-    public Map<String, WorkflowVersionStatus> getSummary() {
-        return summary;
+    public DuplicateDeploymentUnitException(String message, Throwable cause) {
+        super(message, cause);
     }
 }

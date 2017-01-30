@@ -90,29 +90,48 @@ public class WorkFlowExecutionControllerTest {
 
     @Test
     public void testEventPost_shouldLookupRouterAndSendMessage() throws Exception {
-        final EventData testEventData = new EventData("event1", "foo", "someStringData", "runtime");
-        when(eventsDAO.findBySMIdAndName(1l, "event1")).thenReturn(new Event("event1", "foo", Event.EventStatus.pending, 1l, null, null));
-        EventData[] expectedEvents = new EventData[]{new EventData("event1","someType","someStringData","runtime")};
-        when(eventsDAO.findByEventNamesAndSMId(Collections.singletonList("event1"),1l)).thenReturn(Arrays.asList(expectedEvents));
-        when(eventsDAO.findTriggeredEventsNamesBySMId(1l)).thenReturn(Collections.singletonList("event1"));
+        final EventData testEventData = new EventData("event0", "java.lang.String", "42", "runtime");
+        when(eventsDAO.findBySMIdAndName(1l, "event0")).thenReturn(new Event("event0", "java.lang.String", Event.EventStatus.pending, 1l, null, null));
+        EventData[] expectedEvents = new EventData[]{new EventData("event0","java.lang.String","42","runtime")};
+        when(eventsDAO.findTriggeredEventsNamesBySMId(1l)).thenReturn(Collections.singletonList("event0"));
         workFlowExecutionController.postEvent(testEventData, 1l, null);
 
-        verify(routerRegistry, times(2)).getRouter("com.flipkart.flux.dao.TestWorkflow_testTask"); // For 2 unblocked states
-        mockActor.underlyingActor().assertMessageReceived(new TaskAndEvents("testTask", "com.flipkart.flux.dao.TestWorkflow_testTask_event1", 2L, expectedEvents, 1l, objectMapper.writeValueAsString(TestUtils.standardStateMachineOutputEvent()),2), 1);
-        mockActor.underlyingActor().assertMessageReceived(new TaskAndEvents("testTask", "com.flipkart.flux.dao.TestWorkflow_testTask_event1", 3L, expectedEvents, 1l, null,2), 1);
+        verify(routerRegistry, times(1)).getRouter("com.flipkart.flux.dao.TestWorkflow_dummyTask"); // For 1 unblocked states
+        mockActor.underlyingActor().assertMessageReceived(new TaskAndEvents("dummyTask", "com.flipkart.flux.dao.TestWorkflow_dummyTask_java.lang.Integer_java.lang.String_version1", 4L, expectedEvents, 1l, TestUtils.toStr(TestUtils.getOutputEvent("event3", Integer.class)),2), 1);
         verifyNoMoreInteractions(routerRegistry);
     }
 
     @Test
-    public void testEventPost_taskRedriveDelay() throws Exception {
+    public void testEventPost_shouldNotFetchEventDataFromDBIfStateIsDependantOnSingleEvent() throws Exception {
         final EventData testEventData = new EventData("event1", "foo", "someStringData", "runtime");
         when(eventsDAO.findBySMIdAndName(1l, "event1")).thenReturn(new Event("event1", "foo", Event.EventStatus.pending, 1l, null, null));
-        EventData[] expectedEvents = new EventData[]{new EventData("event1","someType","someStringData","runtime")};
-        when(eventsDAO.findByEventNamesAndSMId(Collections.singletonList("event1"),1l)).thenReturn(Arrays.asList(expectedEvents));
         when(eventsDAO.findTriggeredEventsNamesBySMId(1l)).thenReturn(Collections.singletonList("event1"));
         workFlowExecutionController.postEvent(testEventData, 1l, null);
 
-        verify(redriverRegistry).registerTask(3L, 32800); //state with id 3 has 3 retries and 100ms timeout
-        verify(redriverRegistry).registerTask(2L, 16600); //state with id 2 has 2 retries and 100ms timeout
+        // As states 2 and 3 dependant on single event there should be no more interactions with eventDAO to fetch event data
+        verify(eventsDAO, times(0)).findByEventNamesAndSMId(Collections.singletonList("event1"),1l);
+    }
+
+    @Test
+    public void testEventPost_taskRedriveDelay() throws Exception {
+        final EventData testEventData1 = new EventData("event1", "java.lang.String", "42", "runtime");
+        when(eventsDAO.findBySMIdAndName(1l, "event1")).thenReturn(new Event("event1", "java.lang.String", Event.EventStatus.pending, 1l, null, null));
+        EventData[] expectedEvents1 = new EventData[]{new EventData("event1","java.lang.String","42","runtime")};
+        when(eventsDAO.findByEventNamesAndSMId(Collections.singletonList("event1"),1l)).thenReturn(Arrays.asList(expectedEvents1));
+        when(eventsDAO.findTriggeredEventsNamesBySMId(1l)).thenReturn(Collections.singletonList("event1"));
+        workFlowExecutionController.postEvent(testEventData1, 1l, null);
+
+        final EventData testEventData0 = new EventData("event0", "java.lang.String", "42", "runtime");
+        when(eventsDAO.findBySMIdAndName(1l, "event0")).thenReturn(new Event("event0", "java.lang.String", Event.EventStatus.pending, 1l, null, null));
+        EventData[] expectedEvents0 = new EventData[]{new EventData("event0","java.lang.String","42","runtime")};
+        when(eventsDAO.findByEventNamesAndSMId(Collections.singletonList("event0"),1l)).thenReturn(Arrays.asList(expectedEvents0));
+        when(eventsDAO.findTriggeredEventsNamesBySMId(1l)).thenReturn(Collections.singletonList("event0"));
+        workFlowExecutionController.postEvent(testEventData0, 1l, null);
+
+        // give time to execute
+        Thread.sleep(2000);
+
+        verify(redriverRegistry).registerTask(2L, 32800); //state with id 2 has 3 retries and 100ms timeout
+        verify(redriverRegistry).registerTask(4L, 8400); //state with id 4 has 1 retries and 100ms timeout
     }
 }

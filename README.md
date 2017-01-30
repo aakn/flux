@@ -2,12 +2,12 @@
 Flux is an asynchronous, scalable, optionally multi-tenant & distributed and reliable state machine based orchestrator. 
 Flux can be used to build Workflows and Reactive apps that are stateful. 
 
+Please go through the [wiki](https://github.com/flipkart-incubator/flux/wiki) pages to find out more about flux.
+
 ## Releases
 | Release | Date | Description |
 |:------------|:----------------|:------------|
-| Version 1.0-SNAPSHOT             | Jun 2016      |    First release for user trials
-| Version 1.0.3-SNAPSHOT            | Oct 2016      |    
-| Version 1.0.4-SNAPSHOT            | Dec 2016      |    
+| Version 1.0                      | Jan 2017      |  Initial stable release
 
 ## Changelog
 Changelog can be viewed in [CHANGELOG.md](https://github.com/flipkart-incubator/flux/blob/master/CHANGELOG.md) file
@@ -54,5 +54,3 @@ The Flux system design is organized into multiple layers to support building, te
 * Runtime - Multiple variants from single JVM to distributed and isolated runtimes
 * Integration - Support for operating the system i.e. Monitoring, Metrics and RPC mechanisms for running isolated runtimes
 * Deployment - Providing mechanisms for cluster discovery, work distribution
-
-Please go through the [wiki](https://github.com/flipkart-incubator/flux/wiki) pages to find out more about flux.

@@ -11,15 +11,17 @@
  * limitations under the License.
  */
 
-package com.flipkart.flux.redriver.service;
+package com.flipkart.flux.examples.externalevents;
 
-import java.io.Serializable;
+import com.flipkart.flux.client.runtime.Stoppable;
 
 /**
- * A <code>MessageTransmitter</code> provides the capability of sending the message to a given destination
+ * @author shyam.akirala
  */
-public interface MessageTransmitter {
-    enum TransmitStatus {SENT,PERMANENT_FAILURE,TEMP_FAILURE};
+public class SelllerVerificationWorkflowStoppableImpl implements Stoppable {
 
-    TransmitStatus send(Serializable message,String recipient);
+    @Override
+    public void stop() {
+        System.out.println("Cleaning up the resources which are held by this deployment unit........");
+    }
 }
