@@ -1,10 +1,10 @@
 #!/bin/bash
-[ $# -lt 1 ] && echo "Usage `basename $0`<SFS Shadow Jar Path> <SFS Flux File Path> <debug> <debug_port>" && exit 1
+[ $# -lt 1 ] && echo "Usage `basename $0`<SFS Shadow Jar Path> <SFS Flux File Path> <Version> <debug> <debug_port>" && exit 1
 
 SHADOW_JAR=$1
 CONFIG_FILE=$2
-DEBUG=$3
-DEBUG_PORT=$4
+DEBUG=$4
+DEBUG_PORT=$5
 
 if [[ $# -ge 2 && "debug" == ${DEBUG} ]]; then
     [ $# -lt 3 ] && echo "Debug port not found. Usage `basename $0` <Example FQN> <debug> <debug_port>" && exit 1
