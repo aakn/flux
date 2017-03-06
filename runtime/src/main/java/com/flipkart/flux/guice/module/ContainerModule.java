@@ -18,6 +18,7 @@ package com.flipkart.flux.guice.module;
 
 import com.codahale.metrics.JmxReporter;
 import com.codahale.metrics.MetricRegistry;
+import com.codahale.metrics.SharedMetricRegistries;
 import com.codahale.metrics.jersey2.InstrumentedResourceMethodApplicationListener;
 import com.codahale.metrics.jetty9.InstrumentedHandler;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -25,6 +26,8 @@ import com.fasterxml.jackson.jaxrs.json.JacksonJaxbJsonProvider;
 import com.flipkart.flux.config.FileLocator;
 import com.flipkart.flux.constant.RuntimeConstants;
 import com.flipkart.flux.filter.CORSFilter;
+import com.flipkart.flux.metrics.MetricsClientImpl;
+import com.flipkart.flux.metrics.iface.MetricsClient;
 import com.flipkart.flux.resource.DeploymentUnitResource;
 import com.flipkart.flux.resource.StateMachineResource;
 import com.flipkart.flux.resource.StatusResource;
@@ -36,18 +39,16 @@ import org.eclipse.jetty.servlet.ServletContextHandler;
 import org.eclipse.jetty.servlet.ServletHolder;
 import org.eclipse.jetty.util.thread.QueuedThreadPool;
 import org.eclipse.jetty.webapp.WebAppContext;
-import org.glassfish.jersey.jetty.JettyHttpContainerFactory;
 import org.glassfish.jersey.server.ResourceConfig;
 import org.glassfish.jersey.servlet.ServletContainer;
 
 import javax.inject.Named;
 import javax.inject.Singleton;
-import javax.ws.rs.core.UriBuilder;
 import java.io.File;
-import java.net.InetAddress;
 import java.net.URISyntaxException;
 import java.net.UnknownHostException;
 
+import static com.flipkart.flux.Constants.METRIC_REGISTRY_NAME;
 import static com.flipkart.flux.constant.RuntimeConstants.DASHBOARD_VIEW;
 
 /**
@@ -65,7 +66,13 @@ public class ContainerModule extends AbstractModule {
 	 */
 	@Override
 	protected void configure() {
+		bind(MetricsClient.class).to(MetricsClientImpl.class).in(Singleton.class);
+	}
 
+
+	@Provides
+	public MetricRegistry metricRegistry() {
+		return SharedMetricRegistries.getOrCreate(METRIC_REGISTRY_NAME);
 	}
 
 	/**
@@ -138,14 +145,19 @@ public class ContainerModule extends AbstractModule {
 	@Singleton
 	Server getAPIJettyServer(@Named("Api.service.port") int port,
 							 @Named("APIResourceConfig")ResourceConfig resourceConfig,
+							 @Named("Api.service.acceptors") int acceptorThreads,
+							 @Named("Api.service.selectors") int selectorThreads,
+							 @Named("Api.service.workers") int maxWorkerThreads,
 							 ObjectMapper objectMapper, MetricRegistry metricRegistry) throws URISyntaxException, UnknownHostException {
-		//todo-ashish figure out some way of setting acceptor/worker threads
 		JacksonJaxbJsonProvider provider = new JacksonJaxbJsonProvider();
 		provider.setMapper(objectMapper);
 		resourceConfig.register(provider);
-
-		final Server server = JettyHttpContainerFactory.createServer(UriBuilder.fromUri("http://" + InetAddress.getLocalHost().getHostAddress()+ RuntimeConstants.API_CONTEXT_PATH).port(port).build(), false);
-
+		QueuedThreadPool threadPool = new QueuedThreadPool();
+		threadPool.setMaxThreads(maxWorkerThreads);
+		Server server = new Server(threadPool);
+		ServerConnector http = new ServerConnector(server, acceptorThreads, selectorThreads);
+		http.setPort(port);
+		server.addConnector(http);
 		ServletContextHandler context = new ServletContextHandler(server, "/*");
 		ServletHolder servlet = new ServletHolder(new ServletContainer(resourceConfig));
 		context.addServlet(servlet, "/*");

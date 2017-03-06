@@ -16,10 +16,7 @@ package com.flipkart.flux.resource;
 import com.codahale.metrics.annotation.Timed;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.flipkart.flux.api.EventData;
-import com.flipkart.flux.api.EventDefinition;
-import com.flipkart.flux.api.ExecutionUpdateData;
-import com.flipkart.flux.api.StateMachineDefinition;
+import com.flipkart.flux.api.*;
 import com.flipkart.flux.controller.WorkFlowExecutionController;
 import com.flipkart.flux.dao.iface.AuditDAO;
 import com.flipkart.flux.dao.iface.EventsDAO;
@@ -32,6 +29,7 @@ import com.flipkart.flux.domain.Status;
 import com.flipkart.flux.exception.IllegalEventException;
 import com.flipkart.flux.exception.UnknownStateMachine;
 import com.flipkart.flux.impl.RAMContext;
+import com.flipkart.flux.metrics.iface.MetricsClient;
 import com.flipkart.flux.representation.IllegalRepresentationException;
 import com.flipkart.flux.representation.StateMachinePersistenceService;
 import com.google.inject.Inject;
@@ -84,9 +82,11 @@ public class StateMachineResource {
 
     private ObjectMapper objectMapper;
 
+    private MetricsClient metricsClient;
+
     @Inject
     public StateMachineResource(EventsDAO eventsDAO, StateMachinePersistenceService stateMachinePersistenceService,
-                                AuditDAO auditDAO, StateMachinesDAO stateMachinesDAO, StatesDAO statesDAO, WorkFlowExecutionController workFlowExecutionController) {
+                                AuditDAO auditDAO, StateMachinesDAO stateMachinesDAO, StatesDAO statesDAO, WorkFlowExecutionController workFlowExecutionController, MetricsClient metricsClient) {
         this.eventsDAO = eventsDAO;
         this.stateMachinePersistenceService = stateMachinePersistenceService;
         this.stateMachinesDAO = stateMachinesDAO;
@@ -94,6 +94,7 @@ public class StateMachineResource {
         this.auditDAO = auditDAO;
         this.workFlowExecutionController = workFlowExecutionController;
         objectMapper = new ObjectMapper();
+        this.metricsClient = metricsClient;
     }
 
     /**
@@ -119,6 +120,10 @@ public class StateMachineResource {
 
         try {
             stateMachine = createAndInitStateMachine(stateMachineDefinition);
+            metricsClient.markMeter(new StringBuilder().
+                    append("stateMachine.").
+                    append(stateMachine.getName()).
+                    append(".started").toString());
         } catch (ConstraintViolationException ex) {
             //in case of Duplicate correlation key, return http code 409 conflict
             return Response.status(Response.Status.CONFLICT.getStatusCode()).entity(ex.getCause() != null ? ex.getCause().getMessage() : null).build();
@@ -136,10 +141,10 @@ public class StateMachineResource {
         // 1. Convert to StateMachine (domain object) and save in DB
         StateMachine stateMachine = stateMachinePersistenceService.createStateMachine(stateMachineDefinition);
 
+        logger.info("Created state machine with Id: {} and correlation Id: {}", stateMachine.getId(), stateMachine.getCorrelationId());
+
         // 2. initialize and start State Machine
         workFlowExecutionController.initAndStart(stateMachine);
-
-        logger.info("Created state machine with Id: {} and correlation Id: {}", stateMachine.getId(), stateMachine.getCorrelationId());
 
         return stateMachine;
     }
@@ -160,6 +165,32 @@ public class StateMachineResource {
     ) throws Exception {
         logger.info("Received event: {} for state machine: {}", eventData.getName(), machineId);
 
+        return postEvent(machineId, searchField, eventData);
+    }
+
+    /**
+     * Used to post Data corresponding to an event. This also updates the task status to completed which generated the event.
+     *
+     * @param machineId machineId the event is to be submitted against
+     * @param eventAndExecutionData Json representation of event and execution updation data
+     */
+    @POST
+    @Path("/{machineId}/context/eventandstatus")
+    @Timed
+    public Response submitEvent(@PathParam("machineId") String machineId,
+                                EventAndExecutionData eventAndExecutionData
+    ) throws Exception {
+        EventData eventData = eventAndExecutionData.getEventData();
+        ExecutionUpdateData executionUpdateData = eventAndExecutionData.getExecutionUpdateData();
+
+        logger.info("Received event: {} from state: {} for state machine: {}", eventData.getName(), executionUpdateData.getTaskId(), machineId);
+
+        updateTaskStatus(Long.valueOf(machineId), executionUpdateData.getTaskId(), executionUpdateData);
+
+        return postEvent(machineId, null, eventData);
+    }
+
+    private Response postEvent(String machineId, String searchField, EventData eventData) {
         try {
             if (searchField != null) {
                 if (!searchField.equals(CORRELATION_ID)) {
@@ -191,6 +222,11 @@ public class StateMachineResource {
                                  @PathParam("stateId") Long stateId,
                                  ExecutionUpdateData executionUpdateData
     ) throws Exception {
+        updateTaskStatus(machineId, stateId, executionUpdateData);
+    	return Response.status(Response.Status.ACCEPTED).build();
+    }
+
+    private void updateTaskStatus(Long machineId, Long stateId, ExecutionUpdateData executionUpdateData) {
         com.flipkart.flux.domain.Status updateStatus = null;
         switch (executionUpdateData.getStatus()) {
             case initialized:
@@ -212,9 +248,16 @@ public class StateMachineResource {
                 updateStatus = com.flipkart.flux.domain.Status.sidelined;
                 break;
         }
+        metricsClient.markMeter(new StringBuilder().
+                append("stateMachine.").
+                append(executionUpdateData.getStateMachineName()).
+                append(".task.").
+                append(executionUpdateData.getTaskName()).
+                append(".status.").
+                append(updateStatus.name()).
+                toString());
         this.workFlowExecutionController.updateExecutionStatus(machineId, stateId, updateStatus, executionUpdateData.getRetrycount(),
                 executionUpdateData.getCurrentRetryCount(), executionUpdateData.getErrorMessage(), executionUpdateData.isDeleteFromRedriver());
-    	return Response.status(Response.Status.ACCEPTED).build();
     }
 
     /**

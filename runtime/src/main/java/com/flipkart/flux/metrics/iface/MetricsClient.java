@@ -9,16 +9,20 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
- *
  */
 
-package com.flipkart.flux.impl.exception;
+package com.flipkart.flux.metrics.iface;
 
 /**
- * @author ashish.bhutani
+ * <code>MetricsClient</code> provides metrics related functionality, like rate meters or counters.
+ * @author kaushal.hooda
  */
-public class TaskResumableException extends RuntimeException {
-    public TaskResumableException(String message) {
-        super(message);
-    }
+public interface MetricsClient {
+
+    /**
+     * Mark the occurence of an event, which is used to measure its rate.
+     * @param key Specifies the type of event.
+     */
+    public void markMeter(String key);
+
 }
